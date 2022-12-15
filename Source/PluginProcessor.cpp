@@ -36,9 +36,17 @@ MultiBandCompAudioProcessor::MultiBandCompAudioProcessor()
     floatHelper(compressor.threshold, Names::Threshold_Low_Band);
     
     //set up Filters
-    floatHelper(lowCrossover, Names::Low_Mid_Crossover_Freq);
-    LP.setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
-    HP.setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+    floatHelper(lowMidCrossover, Names::Low_Mid_Crossover_Freq);
+    floatHelper(midHighCrossover, Names::Mid_High_Crossover_Freq);
+
+    LP1.setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
+    LP2.setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
+    AP2.setType(juce::dsp::LinkwitzRileyFilterType::allpass);
+    HP1.setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+    HP2.setType(juce::dsp::LinkwitzRileyFilterType::highpass);
+
+    invAP1.setType(juce::dsp::LinkwitzRileyFilterType::allpass);
+    invAP2.setType(juce::dsp::LinkwitzRileyFilterType::allpass);
 
 
     auto boolHelper = [&apvts = this->apvts, &params](auto& param, const auto& paramName)
@@ -137,8 +145,15 @@ void MultiBandCompAudioProcessor::prepareToPlay (double sampleRate, int samplesP
 
     compressor.prepare(spec);
 
-    LP.prepare(spec);
-    HP.prepare(spec);
+    LP1.prepare(spec);
+    HP1.prepare(spec);
+    LP2.prepare(spec);
+    HP2.prepare(spec);
+    AP2.prepare(spec);
+
+    invAP1.prepare(spec);
+    invAP2.prepare(spec);
+    invAPBuffer.setSize(spec.numChannels, samplesPerBlock);
 
     for (auto& buffer : filterBuffers) {
         buffer.setSize(spec.numChannels, samplesPerBlock);
@@ -195,21 +210,51 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     for (auto& fB : filterBuffers) {
         fB = buffer;
     }
-    auto cutoff = lowCrossover->get();
-    LP.setCutoffFrequency(cutoff);
-    HP.setCutoffFrequency(cutoff);
+
+    invAPBuffer = buffer;
+
+    auto lowMidCutoffFreq = lowMidCrossover->get();
+    auto midHighCutoffFreq = midHighCrossover->get();
+    
+    LP1.setCutoffFrequency(lowMidCutoffFreq);
+    HP1.setCutoffFrequency(lowMidCutoffFreq);
+    invAP1.setCutoffFrequency(lowMidCutoffFreq);
+
+    AP2.setCutoffFrequency(midHighCutoffFreq);
+    LP2.setCutoffFrequency(midHighCutoffFreq);
+    HP2.setCutoffFrequency(midHighCutoffFreq);
+    invAP2.setCutoffFrequency(midHighCutoffFreq);
 
     auto fb0Block = juce::dsp::AudioBlock<float>(filterBuffers[0]);
     auto fb1Block = juce::dsp::AudioBlock<float>(filterBuffers[1]);
+    auto fb2Block = juce::dsp::AudioBlock<float>(filterBuffers[2]);
+
 
     auto fb0Ctx = juce::dsp::ProcessContextReplacing<float>(fb0Block);
     auto fb1Ctx = juce::dsp::ProcessContextReplacing<float>(fb1Block);
+    auto fb2Ctx = juce::dsp::ProcessContextReplacing<float>(fb2Block);
 
-    LP.process(fb0Ctx);
-    HP.process(fb1Ctx);
+    LP1.process(fb0Ctx);
+    AP2.process(fb0Ctx);
+
+    HP1.process(fb1Ctx);
+    filterBuffers[2] = filterBuffers[1];
+    //fb2Block = fb1Block;
+    LP2.process(fb1Ctx);
+
+    HP2.process(fb2Ctx);
+
+    auto invAPBlock = juce::dsp::AudioBlock<float>(invAPBuffer);
+    auto invAPCtx = juce::dsp::ProcessContextReplacing<float>(invAPBlock);
+    invAP1.process(invAPCtx);
+    invAP2.process(invAPCtx);
 
     auto numSamples = buffer.getNumSamples();
     auto numChannels = buffer.getNumChannels();
+
+    //if bypassed dont run signal through filters
+    //if (compressor.bypassed->get())
+    //    return;
 
     buffer.clear();
 
@@ -221,6 +266,14 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
 
     addFilterBand(buffer, filterBuffers[0]);
     addFilterBand(buffer, filterBuffers[1]);
+    addFilterBand(buffer, filterBuffers[2]);
+
+    if (compressor.bypassed->get()) {
+        for (auto ch = 0; ch < numChannels; ch++) {
+            juce::FloatVectorOperations::multiply(invAPBuffer.getWritePointer(ch), -1.f, numSamples);
+        }
+        addFilterBand(buffer, invAPBuffer);
+    }
 
 
     //compressor.updateCompressorSettings();
@@ -310,8 +363,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiBandCompAudioProcessor:
 
     layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Low_Mid_Crossover_Freq),
                                                     params.at(Names::Low_Mid_Crossover_Freq),
-                                                    NormalisableRange<float>(20, 20000, 1, 1),
-                                                    500));
+                                                    NormalisableRange<float>(20, 9999, 1, 1),
+                                                    400));
+
+    layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Mid_High_Crossover_Freq),
+                                                    params.at(Names::Mid_High_Crossover_Freq),
+                                                    NormalisableRange<float>(1000, 20000, 1, 1),
+                                                    2000));
 
     return layout;
 }
