@@ -10,9 +10,9 @@
 
 /*
 Roadmapk
-1) split audio into 3 bands
-2) create parameters to control where split happens
-3) test that splitting doesn't create audibe artifacts
+1) split audio into 3 bands DONE
+2) create parameters to control where split happens DONE
+3) test that splitting doesn't create audibe artifacts DONE
 4) create parameters for each compressor bands
 5) add two remaining compressor
 6) mute, solo, bypass individual compressors
@@ -49,6 +49,14 @@ namespace Params
         Bypass_Mid_Band,
         Bypass_High_Band,
 
+        Mute_Low_Band,
+        Mute_Mid_Band,
+        Mute_High_Band,
+
+        Solo_Low_Band,
+        Solo_Mid_Band,
+        Solo_High_Band,
+
     };
 
     inline const std::map<Names, juce::String>& GetParams()
@@ -70,7 +78,13 @@ namespace Params
             {Ratio_High_Band, "Ratio High Band"},
             {Bypass_Low_Band, "Bypass Low Band"},
             {Bypass_Mid_Band, "Bypass Mid Band"},
-            {Bypass_High_Band, "Bypass High Band"}
+            {Bypass_High_Band, "Bypass High Band"},
+            {Mute_Low_Band, "Mute Low Band"},
+            {Mute_Mid_Band, "Mute Mid Band"},
+            {Mute_High_Band, "Mute High Band"},
+            {Solo_Low_Band, "Solo Low Band"},
+            {Solo_Mid_Band, "Solo Mid Band"},
+            {Solo_High_Band, "Solo High Band"}
         };
 
         return params;
@@ -85,6 +99,9 @@ public:
     juce::AudioParameterFloat* threshold{ nullptr };
     juce::AudioParameterChoice* ratio{ nullptr };
     juce::AudioParameterBool* bypassed{ nullptr };
+    juce::AudioParameterBool* mute{ nullptr };
+    juce::AudioParameterBool* solo{ nullptr };
+
 
     void prepare(const juce::dsp::ProcessSpec& spec) {
         compressor.prepare(spec);
@@ -162,7 +179,12 @@ public:
 
 private:
 
-    CompressorBand compressor;
+    //CompressorBand compressorLow;
+    std::array<CompressorBand, 3> compressorArray;
+    CompressorBand& lowBandComp = compressorArray[0];
+    CompressorBand& midBandComp = compressorArray[1];
+    CompressorBand& highBandComp = compressorArray[2];
+
 
     using Filter = juce::dsp::LinkwitzRileyFilter<float>;
     
@@ -170,8 +192,8 @@ private:
     Filter  LP1,    AP2,    //freq band 1
             HP1,    LP2,    //freq band 2
                     HP2;    //freq band 3
-    Filter invAP1, invAP2;
-    juce::AudioBuffer<float> invAPBuffer;
+    //Filter invAP1, invAP2;
+    //juce::AudioBuffer<float> invAPBuffer;
 
     juce::AudioParameterFloat* lowMidCrossover{ nullptr };
     juce::AudioParameterFloat* midHighCrossover{ nullptr };
