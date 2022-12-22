@@ -48,6 +48,10 @@ MultiBandCompAudioProcessor::MultiBandCompAudioProcessor()
     floatHelper(lowMidCrossover, Names::Low_Mid_Crossover_Freq);
     floatHelper(midHighCrossover, Names::Mid_High_Crossover_Freq);
 
+    floatHelper(inputGainParam, Names::Gain_In);
+    floatHelper(outputGainParam, Names::Gain_Out);
+
+
     LP1.setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
     LP2.setType(juce::dsp::LinkwitzRileyFilterType::lowpass);
     AP2.setType(juce::dsp::LinkwitzRileyFilterType::allpass);
@@ -176,6 +180,13 @@ void MultiBandCompAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     //invAP2.prepare(spec);
     //invAPBuffer.setSize(spec.numChannels, samplesPerBlock);
 
+    inputGain.prepare(spec);
+    outputGain.prepare(spec);
+
+    inputGain.setRampDurationSeconds(0.05); //50ms
+    outputGain.setRampDurationSeconds(0.05);
+
+
     for (auto& buffer : filterBuffers) {
         buffer.setSize(spec.numChannels, samplesPerBlock);
     }
@@ -231,6 +242,11 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     for (auto& comp : compressorArray) {
         comp.updateCompressorSettings();
     }
+
+    inputGain.setGainDecibels(inputGainParam->get());
+    outputGain.setGainDecibels(outputGainParam->get());
+
+    applyGain(buffer, inputGain);
 
     for (auto& fB : filterBuffers) {
         fB = buffer;
@@ -332,6 +348,8 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
         }
     }
 
+    applyGain(buffer, outputGain);
+
 }
 
 //==============================================================================
@@ -383,6 +401,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiBandCompAudioProcessor:
 
     const auto& params = GetParams();
 
+    auto gainRange = NormalisableRange<float>(-24.f, 24.f, 0.5f, 1.f);
+    layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Gain_In),
+                                                        params.at(Names::Gain_In),
+                                                        gainRange,
+                                                        0));
+    layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Gain_Out),
+                                                        params.at(Names::Gain_Out),
+                                                        gainRange,
+                                                        0));
+
     auto thresholdRange = NormalisableRange<float>(-60, 12, 1, 1);
     layout.add(std::make_unique<AudioParameterFloat>( params.at(Names::Threshold_Low_Band),
                                                         params.at(Names::Threshold_Low_Band),
@@ -424,6 +452,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiBandCompAudioProcessor:
                                                         params.at(Names::Release_High_Band),
                                                         attackReleaseRange,
                                                         250));
+    
 
     auto choices = std::vector<double>{ 1,1.5,2,3,4,5,6,7,8,10,15,20,50,100 };
     StringArray sa;
