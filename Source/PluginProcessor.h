@@ -13,11 +13,11 @@ Roadmapk
 1) split audio into 3 bands DONE
 2) create parameters to control where split happens DONE
 3) test that splitting doesn't create audibe artifacts DONE
-4) create parameters for each compressor bands
-5) add two remaining compressor
-6) mute, solo, bypass individual compressors
-7) add input and output gain
-8) cleanup
+4) create parameters for each compressor bands DONE
+5) add two remaining compressor DONE
+6) mute, solo, bypass individual compressors DONE
+7) add input and output gain  DONE
+8) cleanup DONE
 */
 
 #include <JuceHeader.h>
@@ -215,6 +215,9 @@ private:
         auto ctx = juce::dsp::ProcessContextReplacing<float>(block);
         gain.process(ctx);
     }
+
+    void updateState();
+    void splitBands(const juce::AudioBuffer<float>& inputBuffer);
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultiBandCompAudioProcessor)
 };

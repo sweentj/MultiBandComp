@@ -224,21 +224,8 @@ bool MultiBandCompAudioProcessor::isBusesLayoutSupported (const BusesLayout& lay
 }
 #endif
 
-void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
-{
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
+void MultiBandCompAudioProcessor::updateState() {
+    
     for (auto& comp : compressorArray) {
         comp.updateCompressorSettings();
     }
@@ -246,17 +233,9 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     inputGain.setGainDecibels(inputGainParam->get());
     outputGain.setGainDecibels(outputGainParam->get());
 
-    applyGain(buffer, inputGain);
-
-    for (auto& fB : filterBuffers) {
-        fB = buffer;
-    }
-
-    //invAPBuffer = buffer; //filter testing
-
     auto lowMidCutoffFreq = lowMidCrossover->get();
     auto midHighCutoffFreq = midHighCrossover->get();
-    
+
     LP1.setCutoffFrequency(lowMidCutoffFreq);
     HP1.setCutoffFrequency(lowMidCutoffFreq);
     //invAP1.setCutoffFrequency(lowMidCutoffFreq);  //filter testing
@@ -265,6 +244,15 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     LP2.setCutoffFrequency(midHighCutoffFreq);
     HP2.setCutoffFrequency(midHighCutoffFreq);
     //invAP2.setCutoffFrequency(midHighCutoffFreq); //filter testing
+
+}
+
+void MultiBandCompAudioProcessor::splitBands(const juce::AudioBuffer<float> &inputBuffer) {
+    
+    for (auto& fB : filterBuffers) {
+        fB = inputBuffer;
+    }
+    //invAPBuffer = buffer; //filter testing
 
     auto fb0Block = juce::dsp::AudioBlock<float>(filterBuffers[0]);
     auto fb1Block = juce::dsp::AudioBlock<float>(filterBuffers[1]);
@@ -291,7 +279,7 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     invAP1.process(invAPCtx);
     invAP2.process(invAPCtx);*/
 
-    
+
 
     //if compressor bypassed, multiply the inverse the allpass and add it to buffer
     //should produce silence when bypassed
@@ -303,6 +291,28 @@ void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     }*/
 
     //process the filters in the right filter band
+}
+
+void MultiBandCompAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    // In case we have more outputs than inputs, this code clears any output
+    // channels that didn't contain input data, (because these aren't
+    // guaranteed to be empty - they may contain garbage).
+    // This is here to avoid people getting screaming feedback
+    // when they first compile a plugin, but obviously you don't need to keep
+    // this code if your algorithm always overwrites all the output channels.
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
+
+    updateState();
+
+    applyGain(buffer, inputGain);
+
+    splitBands(buffer);
 
     for (size_t i = 0; i < filterBuffers.size(); i++) {
         compressorArray[i].process(filterBuffers[i]);
@@ -360,8 +370,8 @@ bool MultiBandCompAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* MultiBandCompAudioProcessor::createEditor()
 {
-    //return new MultiBandCompAudioProcessorEditor (*this);
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new MultiBandCompAudioProcessorEditor (*this);
+    //return new juce::GenericAudioProcessorEditor(*this);
 }
 
 //==============================================================================
