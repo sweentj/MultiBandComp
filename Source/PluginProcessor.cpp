@@ -512,7 +512,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiBandCompAudioProcessor:
 
     layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Low_Mid_Crossover_Freq),
                                                     params.at(Names::Low_Mid_Crossover_Freq),
-                                                    NormalisableRange<float>(20, 9999, 1, 1),
+                                                    NormalisableRange<float>(20, 999, 1, 1),
                                                     400));
 
     layout.add(std::make_unique<AudioParameterFloat>(params.at(Names::Mid_High_Crossover_Freq),
