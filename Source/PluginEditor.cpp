@@ -311,21 +311,100 @@ GlobalControls::GlobalControls(juce::AudioProcessorValueTreeState& apvts)
     addAndMakeVisible(*outGainSlider);
 }
 
-void GlobalControls::paint(juce::Graphics& g)
+CompressorBandControls::CompressorBandControls(juce::AudioProcessorValueTreeState& apvts)
+{
+    using namespace Params;
+    const auto& params = GetParams();
+
+    auto getParamHelper = [&params, &apvts](const auto& name) -> auto&
+    {
+        return getParam(apvts, params, name);
+    };
+
+    auto& attackParam = getParamHelper(Names::Attack_Mid_Band);
+    auto& releaseParam = getParamHelper(Names::Release_Mid_Band);
+    auto& thresholdParam = getParamHelper(Names::Threshold_Mid_Band);
+    auto& ratioParam = getParamHelper(Names::Ratio_Mid_Band);
+
+    attackSlider = std::make_unique<RSWL>(attackParam, "ms", "ATTACK");
+    releaseSlider = std::make_unique<RSWL>(releaseParam, "ms", "RELEASE");
+    thresholdSlider = std::make_unique<RSWL>(thresholdParam, "dB", "TRESHOLD");
+    ratioSlider = std::make_unique<RSWL>(ratioParam, "%", "Ratio");
+
+    addLabelPairs(attackSlider->labels, getParamHelper(Names::Attack_Mid_Band), "ms");
+    addLabelPairs(releaseSlider->labels, getParamHelper(Names::Release_Mid_Band), "ms");
+    addLabelPairs(thresholdSlider->labels, getParamHelper(Names::Threshold_Mid_Band), "dB");
+    addLabelPairs(ratioSlider->labels, getParamHelper(Names::Ratio_Mid_Band), "%");
+
+    //Attach slider parameters to apvts
+    auto makeAttachmentHelper = [&params, &apvts](auto& attachment, const auto& name, auto& slider)
+    {
+        makeAttachment(attachment, apvts, params, name, slider);
+    };
+    
+    makeAttachmentHelper(attackSliderAttachment, Names::Attack_Mid_Band, *attackSlider);
+    makeAttachmentHelper(releasSliderAttachment, Names::Release_Mid_Band, *releaseSlider);
+    makeAttachmentHelper(thresholdSliderAttachment, Names::Threshold_Mid_Band, *thresholdSlider);
+    makeAttachmentHelper(ratioSliderAttachment, Names::Ratio_Mid_Band, *ratioSlider);
+
+    addAndMakeVisible(*attackSlider);
+    addAndMakeVisible(*releaseSlider);
+    addAndMakeVisible(*thresholdSlider);
+    addAndMakeVisible(*ratioSlider);
+}
+
+void CompressorBandControls::resized()
 {
     using namespace juce;
 
-    auto bounds = getLocalBounds();
+    auto bounds = getLocalBounds().reduced(5);
+    FlexBox flexBox;
+    flexBox.flexDirection = FlexBox::Direction::row;
+    flexBox.flexWrap = FlexBox::Wrap::noWrap;
+
+    auto spacer = FlexItem().withWidth(4);
+    auto endCap = FlexItem().withWidth(6);
+    flexBox.items.add(endCap);
+    flexBox.items.add(FlexItem(*attackSlider).withFlex(1.f));
+    flexBox.items.add(spacer);
+    flexBox.items.add(FlexItem(*releaseSlider).withFlex(1.f));
+    flexBox.items.add(spacer);
+    flexBox.items.add(FlexItem(*thresholdSlider).withFlex(1.f));
+    flexBox.items.add(spacer);
+    flexBox.items.add(FlexItem(*ratioSlider).withFlex(1.f));
+    flexBox.items.add(endCap);
+
+    flexBox.performLayout(bounds);
+}
+
+void drawModuleBackground(juce::Graphics& g, juce::Rectangle<int> bounds)
+{
+    using namespace juce;
+
     g.setColour(Colours::blueviolet);
     g.fillAll();
 
     auto localBounds = bounds;
-    
+
     bounds.reduce(3, 3);
     g.setColour(Colours::black);
     g.fillRoundedRectangle(bounds.toFloat(), 3);
 
     g.drawRect(localBounds);
+}
+
+void CompressorBandControls::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds();
+    drawModuleBackground(g, bounds);
+
+}
+
+void GlobalControls::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds();
+    drawModuleBackground(g, bounds);
+
 }
 
 void GlobalControls::resized()
@@ -361,7 +440,7 @@ MultiBandCompAudioProcessorEditor::MultiBandCompAudioProcessorEditor (MultiBandC
     //addAndMakeVisible(controlBar);
     //addAndMakeVisible(analyzer);
     addAndMakeVisible(globalControls);
-    //addAndMakeVisible(bandControls);
+    addAndMakeVisible(bandControls);
 
     setSize (600, 500);
 }
@@ -388,3 +467,4 @@ void MultiBandCompAudioProcessorEditor::resized()
     analyzer.setBounds(bounds.removeFromTop(225));
     globalControls.setBounds(bounds);
 }
+
