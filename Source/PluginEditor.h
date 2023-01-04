@@ -50,19 +50,19 @@ struct LookAndFeel : juce::LookAndFeel_V4
 
 struct RotarySliderWithLabels : juce::Slider
 {
-    RotarySliderWithLabels(juce::RangedAudioParameter& rap, const juce::String& unitSuffix, const juce::String& title) :
+    RotarySliderWithLabels(juce::RangedAudioParameter* rap, const juce::String& unitSuffix, const juce::String& title) :
         juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag,
             juce::Slider::TextEntryBoxPosition::NoTextBox),
-        param(&rap),
+        param(rap),
         suffix(unitSuffix)
     {
         setName(title);
-        setLookAndFeel(&lnf);
+        //setLookAndFeel(&lnf);
     }
 
     ~RotarySliderWithLabels()
     {
-        setLookAndFeel(nullptr);
+        //setLookAndFeel(nullptr);
     }
 
     struct LabelPos
@@ -76,12 +76,22 @@ struct RotarySliderWithLabels : juce::Slider
     void paint(juce::Graphics& g) override;
     juce::Rectangle<int> getSliderBounds() const;
     int getTextHeight() const { return 14; }
-    juce::String getDisplayString() const;
-private:
-    LookAndFeel lnf;
+    virtual juce::String getDisplayString() const;
+
+    void changeParam(juce::RangedAudioParameter* p);
+protected:
+
 
     juce::RangedAudioParameter* param;
     juce::String suffix;
+};
+
+struct RatioSlider : RotarySliderWithLabels
+{
+    RatioSlider(juce::RangedAudioParameter* rap, const juce::String& unitSuffix) :
+        RotarySliderWithLabels(rap, unitSuffix, "RATIO") {}
+
+    juce::String getDisplayString() const override;
 };
 
 struct PowerButton : juce::ToggleButton { };
@@ -160,14 +170,15 @@ void addLabelPairs(Labels& labels, const ParamType& param, const SuffixType& suf
 
 struct CompressorBandControls : juce::Component
 {
-    CompressorBandControls(juce::AudioProcessorValueTreeState& apvts);
+    CompressorBandControls(juce::AudioProcessorValueTreeState& apv);
 
     void resized() override;
     void paint(juce::Graphics& g) override;
 
 private:
-    using RSWL = RotarySliderWithLabels;
-    std::unique_ptr<RotarySliderWithLabels> attackSlider, releaseSlider, thresholdSlider, ratioSlider;
+    juce::AudioProcessorValueTreeState& apvts;
+    RotarySliderWithLabels attackSlider, releaseSlider, thresholdSlider;//, ratioSlider;
+    RatioSlider ratioSlider;
 
     using Attachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<Attachment> attackSliderAttachment, releasSliderAttachment, thresholdSliderAttachment, ratioSliderAttachment;
@@ -205,6 +216,8 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
+    LookAndFeel lnf;
+
     MultiBandCompAudioProcessor& audioProcessor;
 
     PlaceHolder controlBar, analyzer /*globalControls bandControls*/;
