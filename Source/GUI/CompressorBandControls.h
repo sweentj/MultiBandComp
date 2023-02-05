@@ -13,13 +13,16 @@
 #include "RotarySliderWithLabels.h"
 #include "../DSP/Params.h"
 
-struct CompressorBandControls : juce::Component
+struct CompressorBandControls : juce::Component, juce::Button::Listener
 {
     CompressorBandControls(juce::AudioProcessorValueTreeState& apv);
 
     void resized() override;
     void paint(juce::Graphics& g) override;
 
+    void buttonClicked(juce::Button* button) override;
+
+    void toggleAllBands(bool shouldBeBypassed);
 private:
     juce::AudioProcessorValueTreeState& apvts;
     RotarySliderWithLabels attackSlider, releaseSlider, thresholdSlider;//, ratioSlider;
@@ -35,4 +38,7 @@ private:
     juce::Component::SafePointer<CompressorBandControls> safePtr{ this };
 
     void updateAttachments();
+    void updateSliderEnablements();
+    void updateSoloMuteBypassToggleStates(juce::Button& clickedButton);
+    void updateActiveBandFillColours(juce::Button& clickedButton);
 };

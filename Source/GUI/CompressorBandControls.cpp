@@ -17,61 +17,50 @@ CompressorBandControls::CompressorBandControls(juce::AudioProcessorValueTreeStat
     thresholdSlider(nullptr, "dB", "THRESHOLD"),
     ratioSlider(nullptr, "")
 {
-    /*
-
-    /*auto getParamHelper = [&params, &apvts = this->apvts](const auto& name) -> auto&
-    {
-        return getParam(apvts, params, name);
-    };
-
-    auto& attackParam = getParamHelper(Names::Attack_Mid_Band);
-    auto& releaseParam = getParamHelper(Names::Release_Mid_Band);
-    auto& thresholdParam = getParamHelper(Names::Threshold_Mid_Band);
-    auto& ratioParam1 = getParamHelper(Names::Ratio_Mid_Band);*/
-
-    //attackSlider.changeParam(&attackParam);
-    //releaseSlider.changeParam(&releaseParam);
-    //thresholdSlider.changeParam(&thresholdParam);
-    //ratioSlider.changeParam(&ratioParam1);
-
-    ///*attackSlider = std::make_unique<RSWL>(&attackParam, "ms", "ATTACK");
-    //releaseSlider = std::make_unique<RSWL>(&releaseParam, "ms", "RELEASE");
-    //thresholdSlider = std::make_unique<RSWL>(&thresholdParam, "dB", "TRESHOLD");
-    //ratioSlider = std::make_unique<RSWL>(&ratioParam, "%", "Ratio");*/
-
-    //addLabelPairs(attackSlider.labels, getParamHelper(Names::Attack_Mid_Band), "ms");
-    //addLabelPairs(releaseSlider.labels, getParamHelper(Names::Release_Mid_Band), "ms");
-    //addLabelPairs(thresholdSlider.labels, getParamHelper(Names::Threshold_Mid_Band), "dB");
-    ////addLabelPairs(ratioSlider.labels, getParamHelper(Names::Ratio_Mid_Band), "%");
-    //ratioSlider.labels.add({ 0.f,"1:1" });
-    //auto ratioParam2 = dynamic_cast<juce::AudioParameterChoice*>(&getParamHelper(Names::Ratio_Mid_Band));
-
-    ////this some bullshit to make the 100% position say "100:1"
-    //ratioSlider.labels.add({ 1.0f,juce::String(ratioParam2->choices.getReference(ratioParam2->choices.size() - 1).getIntValue())+":1"});
-
-    //Attach slider parameters to apvts
-    /*auto makeAttachmentHelper = [&params, &apvts=this->apvts](auto& attachment, const auto& name, auto& slider)
-    {
-        makeAttachment(attachment, apvts, params, name, slider);
-    };
-
-    makeAttachmentHelper(attackSliderAttachment, Names::Attack_Mid_Band, attackSlider);
-    makeAttachmentHelper(releaseSliderAttachment, Names::Release_Mid_Band, releaseSlider);
-    makeAttachmentHelper(thresholdSliderAttachment, Names::Threshold_Mid_Band, thresholdSlider);
-    makeAttachmentHelper(ratioSliderAttachment, Names::Ratio_Mid_Band, ratioSlider);*/
 
     addAndMakeVisible(attackSlider);
     addAndMakeVisible(releaseSlider);
     addAndMakeVisible(thresholdSlider);
     addAndMakeVisible(ratioSlider);
 
+    bypassButton.addListener(this);
+    soloButton.addListener(this);
+    muteButton.addListener(this);
+
+
     bypassButton.setName("X");
+    bypassButton.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::yellow);
+    bypassButton.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
+    
     soloButton.setName("S");
+    soloButton.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::limegreen);
+    soloButton.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
+    
     muteButton.setName("M");
+    muteButton.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::red);
+    muteButton.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
 
     lowBand.setName("Low");
+    lowBand.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::grey);
+    lowBand.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
     midBand.setName("Mid");
+    midBand.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::grey);
+    midBand.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
     highBand.setName("High");
+    highBand.setColour(juce::TextButton::ColourIds::buttonOnColourId,
+        juce::Colours::grey);
+    highBand.setColour(juce::TextButton::ColourIds::buttonColourId,
+        juce::Colours::black);
 
     lowBand.setRadioGroupId(1);
     midBand.setRadioGroupId(1);
@@ -164,6 +153,49 @@ void CompressorBandControls::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds();
     drawModuleBackground(g, bounds);
+
+}
+
+void CompressorBandControls::buttonClicked(juce::Button* button)
+{
+    //updateSliderenablements
+    //updateSoloMuteBypassToggleStates
+    //updateActiveBandFillColours
+    updateSliderEnablements();
+    updateSoloMuteBypassToggleStates(*button);
+    //updateActiveBandFillColours(*button);
+}
+
+//if compressor band is muted or bypassed, disable the sliders
+void CompressorBandControls::updateSliderEnablements()
+{
+    bool disabled = muteButton.getToggleState() || bypassButton.getToggleState();
+    attackSlider.setEnabled(!disabled);
+    releaseSlider.setEnabled(!disabled);
+    thresholdSlider.setEnabled(!disabled);
+    ratioSlider.setEnabled(!disabled);
+
+}
+
+//only one of the SMB buttons can be pressed
+void CompressorBandControls::updateSoloMuteBypassToggleStates(juce::Button& clickedButton)
+{
+    if (&clickedButton == &bypassButton && bypassButton.getToggleState()) {
+        muteButton.setToggleState(false, juce::sendNotification);
+        soloButton.setToggleState(false, juce::sendNotification);
+    }
+    else if (&clickedButton == &muteButton && muteButton.getToggleState()) {
+        bypassButton.setToggleState(false, juce::sendNotification);
+        soloButton.setToggleState(false, juce::sendNotification);
+    }
+    else if (&clickedButton == &soloButton && soloButton.getToggleState()) {
+        bypassButton.setToggleState(false, juce::sendNotification);
+        muteButton.setToggleState(false, juce::sendNotification);
+    }
+}
+
+void CompressorBandControls::updateActiveBandFillColours(juce::Button& clickedButton)
+{
 
 }
 
